@@ -14,7 +14,7 @@ class AruodasSpiderSpider(scrapy.Spider):
     def parse(self, response):
         urls = response.css("tr.list-row td.list-adress a::attr(href)").getall()
 
-        for url in urls[:1]:
+        for url in urls:
             yield Request(url, callback=self.parse_item)
 
         pagination_elems = response.css("div.pagination a")
