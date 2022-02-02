@@ -3,10 +3,14 @@
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
-from scrapy import signals
+import os
+import time
 
-# useful for handling different item types with a single interface
-from itemadapter import is_item, ItemAdapter
+import undetected_chromedriver as uc
+import yaml
+from scrapy import signals
+from scrapy.http import HtmlResponse
+from selenium.common.exceptions import NoSuchElementException
 
 
 class AruodasSpiderMiddleware:
@@ -53,7 +57,7 @@ class AruodasSpiderMiddleware:
             yield r
 
     def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+        spider.logger.info("Spider opened: %s" % spider.name)
 
 
 class AruodasDownloaderMiddleware:
@@ -100,4 +104,45 @@ class AruodasDownloaderMiddleware:
         pass
 
     def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+        spider.logger.info("Spider opened: %s" % spider.name)
+
+
+class SeleniumMiddleware:
+    def __init__(self):
+        proxy_fp = "./proxy.yml"
+        options = uc.ChromeOptions()
+        options.headless = True
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        if os.path.exists(proxy_fp):
+            with open(proxy_fp, "r") as f:
+                proxy = yaml.safe_load(f)["proxy"]
+            proxy_for_uc = "--proxy-server=socks5://" + proxy
+            options.add_argument(proxy_for_uc)
+        self.driver = uc.Chrome(options=options)
+
+    def detect_recaptcha(self):
+        try:
+            recaptcha_elem = self.driver.find_element_by_css_selector(
+                "div button.g-recaptcha"
+            )
+            recaptcha_elem.click()
+            print("Clicking")
+            time.sleep(2)
+        except NoSuchElementException:
+            pass
+
+    def process_request(self, request, spider):
+        url = request.url
+        self.driver.get(url)
+        self.detect_recaptcha()
+        self.driver.save_screenshot("selenium_middleware.png") # used for debugging
+
+        html = self.driver.page_source
+        response = HtmlResponse(
+            self.driver.current_url,
+            body=html.encode("utf-8"),
+            request=request,
+            encoding="utf-8",
+        )
+        return response

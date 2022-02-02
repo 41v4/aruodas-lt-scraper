@@ -11,6 +11,12 @@ class AruodasSpiderSpider(scrapy.Spider):
     allowed_domains = ['aruodas.lt']
     start_urls = ['https://www.aruodas.lt/butai/vilniuje/']
 
+    custom_settings = {
+        'DOWNLOADER_MIDDLEWARES': {
+            'aruodas.middlewares.SeleniumMiddleware': 705,
+        }
+    }
+
     def parse(self, response):
         urls = response.css("tr.list-row td.list-adress a::attr(href)").getall()
 
