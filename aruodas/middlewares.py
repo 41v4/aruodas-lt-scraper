@@ -3,6 +3,7 @@
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+from datetime import datetime
 import os
 import time
 
@@ -130,6 +131,49 @@ class SeleniumMiddleware:
             recaptcha_elems[0].click()
             time.sleep(2)
 
+    def save_page_source(self, page_source, fn):
+        page_source_main_dir = "./page_sources"
+
+        if not os.path.exists(page_source_main_dir):
+            os.mkdir(page_source_main_dir)
+
+        current_datetime = datetime.now()
+        crawling_session_dir = "_".join(
+            [
+                str(current_datetime.year),
+                str(current_datetime.month),
+                str(current_datetime.day),
+            ]
+        )
+
+        crawling_session_dir_joined = os.path.join(
+            page_source_main_dir, crawling_session_dir
+        )
+
+        if not os.path.exists(crawling_session_dir_joined):
+            os.mkdir(crawling_session_dir_joined)
+
+        saving_fp = os.path.join(page_source_main_dir, crawling_session_dir, fn)
+
+        with open(saving_fp, "w") as f:
+            f.write(page_source)
+
+    def extract_object_id(self, url):
+        kw_to_ignore = "/puslapis/"
+
+        if kw_to_ignore not in url:
+            split_by = "/"
+            url_splitted = url.strip("/").split(split_by)
+            last_part = url_splitted[-1]
+            object_id = last_part.split("-")[-1]
+            try:
+                int(object_id)
+                return object_id
+            except ValueError:
+                return None
+        else:
+            return None
+
     def process_request(self, request, spider):
         url = request.url
         self.driver.get(url)
@@ -137,6 +181,11 @@ class SeleniumMiddleware:
         self.driver.save_screenshot("selenium_middleware.png")  # used for debugging
 
         html = self.driver.page_source
+        object_id = self.extract_object_id(url)
+
+        if object_id:
+            self.save_page_source(html, object_id)
+
         response = HtmlResponse(
             self.driver.current_url,
             body=html.encode("utf-8"),
