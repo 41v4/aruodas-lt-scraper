@@ -11,6 +11,7 @@ import yaml
 from scrapy import signals
 from scrapy.http import HtmlResponse
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.by import By
 
 
 class AruodasSpiderMiddleware:
@@ -122,21 +123,18 @@ class SeleniumMiddleware:
         self.driver = uc.Chrome(options=options)
 
     def detect_recaptcha(self):
-        try:
-            recaptcha_elem = self.driver.find_element_by_css_selector(
-                "div button.g-recaptcha"
-            )
-            recaptcha_elem.click()
-            print("Clicking")
+        recaptcha_elems = self.driver.find_elements(
+            By.CSS_SELECTOR, "div button.g-recaptcha"
+        )
+        if recaptcha_elems:
+            recaptcha_elems[0].click()
             time.sleep(2)
-        except NoSuchElementException:
-            pass
 
     def process_request(self, request, spider):
         url = request.url
         self.driver.get(url)
         self.detect_recaptcha()
-        self.driver.save_screenshot("selenium_middleware.png") # used for debugging
+        self.driver.save_screenshot("selenium_middleware.png")  # used for debugging
 
         html = self.driver.page_source
         response = HtmlResponse(
